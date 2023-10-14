@@ -140,4 +140,193 @@ journalctl -u prometheus -f --no-pager
 ```
 
 ## Install Node Exporter on Ubuntu 22.04
-    
+
+let's create a system user for Node Exporter  
+
+```bash
+sudo useradd \
+    --system \
+    --no-create-home \
+    --shell /bin/false node_exporter
+
+```
+Use the wget command to download the binary.
+```bash
+wget https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+
+```
+
+Extract the node exporter from the archive.
+```bash
+tar -xvf node_exporter-1.6.1.linux-amd64.tar.gz
+
+```
+Move binary to the /usr/local/bin.
+```bash
+sudo mv \
+  node_exporter-1.6.0.linux-amd64/node_exporter \
+  /usr/local/bin/
+
+```
+
+Clean up, and delete node_exporter archive and a folder.
+
+```bash
+rm -rf node_exporter*
+
+node_exporter --version
+
+node_exporter --help
+
+
+```
+create a similar systemd unit file.
+
+```bash
+sudo vim /etc/systemd/system/node_exporter.service
+
+```
+node_exporter.service
+
+```bash
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.logind
+
+[Install]
+WantedBy=multi-user.target
+```
+
+
+```bash
+sudo systemctl enable node_exporter
+
+sudo systemctl start node_exporter
+
+sudo systemctl status node_exporter
+
+
+```
+If you have any issues, check logs with journalctl
+
+```bash
+journalctl -u node_exporter -f --no-pager
+
+```
+
+To create a static target, you need to add job_name with static_configs.
+
+```
+sudo vim /etc/prometheus/prometheus.yml
+
+
+```
+prometheus.yml
+
+```
+- job_name: node_export
+    static_configs:
+      - targets: ["localhost:9100"]
+
+```
+
+Before, restarting check if the config is valid.
+
+```
+promtool check config /etc/prometheus/prometheus.yml
+
+```
+
+Then, you can use a POST request to reload the config.
+
+```
+curl -X POST http://localhost:9090/-/reload
+
+http://<ip>:9090/targets
+
+
+```
+
+## Install Grafana on Ubuntu 22.04
+
+Add all the dependencies
+```
+sudo apt-get install -y apt-transport-https software-properties-common
+
+
+```
+
+add the GPG key
+
+```
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+
+```
+
+Add this repository for stable releases.
+
+```
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+
+sudo apt-get update
+
+sudo apt-get -y install grafana
+
+sudo systemctl enable grafana-server
+
+sudo systemctl start grafana-server
+
+sudo systemctl status grafana-server
+
+http://<ip>:3000
+
+```
+
+## Let's Monitor JENKINS SYSTEM
+Goto Manage Jenkins --> Plugins --> Available Plugins
+Search for Prometheus and install it
+
+To create a static target, you need to add job_name with static_configs.
+
+```
+sudo vim /etc/prometheus/prometheus.yml
+
+  - job_name: 'jenkins'
+    metrics_path: '/prometheus'
+    static_configs:
+      - targets: ['<jenkins-ip>:8080']
+
+
+```
+Before, restarting check if the config is valid
+
+
+```
+promtool check config /etc/prometheus/prometheus.yml
+
+curl -X POST http://localhost:9090/-/reload
+
+http://<ip>:9090/targets
+
+Use Id 9964 and click on load
+```
+Click On Dashboard --> + symbol --> Import Dashboard
+
+Use Id 9964 and click on load
+
+
+
+
